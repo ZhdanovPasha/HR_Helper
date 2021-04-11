@@ -1,107 +1,16 @@
 import json
 import requests
+import time
 from tqdm import tqdm
 from bs4 import BeautifulSoup
+from config import CONFIG
 
 
 def delete_spaces(word):
     return ' '.join(word.split())
 
-def parse_cv(request):
-    candidate = dict()
-    soup = BeautifulSoup(request.text)
 
-    tmp = (
-        soup
-        .find('span', {'class': 'position-name'})
-    )
-    if tmp is not None:
-        candidate['position_name'] = delete_spaces(tmp.text)
-
-    tmp = (
-        soup
-        .find('span', {'class': 'salary'})
-    )
-    if tmp is not None:
-        candidate['salary'] = delete_spaces(tmp.text)
-    
-    tmp = (
-        soup
-        .find_all('div', {'class': 'b-skills-desrc'})
-    )
-    if tmp is not None:
-        candidate['skills'] = ''
-        for skill in tmp: 
-            candidate['skills'] += delete_spaces(skill.text) + '.'
-
-    tmp = soup.find_all('span', {'class': 'resume_leaving_region_block'})
-    if tmp is not None:
-        cities = []
-        for city in tmp:
-            cities.append(delete_spaces(city.text))
-        candidate['desired_places_of_work'] = cities
-
-    tmp = (
-        soup
-        .find('p', {'class': 'b-sex-age'})
-    )
-    sexes = set(('мужчина', 'женщина'))
-    if tmp is not None:
-        arr = delete_spaces(tmp.text).split(',')
-        arr = [delete_spaces(item) for item in arr]
-        age, sex = '', ''
-        if len(arr) > 0:
-            if arr[0] in sexes:
-                sex = arr[0]
-            else:
-                age = arr[0]
-        if len(arr) > 1:
-            if arr[1] in sexes and not sex:
-                sex = arr[1]
-            elif not age:
-                age = arr[1]
-        candidate['age'] = delete_spaces(age)
-        candidate['sex'] = delete_spaces(sex)
-
-    tmp = (
-        soup.find('p', {'class': 'b-city-info'})
-    )
-    if tmp is not None:
-        candidate['city'] = delete_spaces(tmp.text)
-
-    tmp = soup.find('p', {'class': 'b-citizenship-info'})
-    if tmp is not None:
-        candidate['citizenship'] = delete_spaces(tmp.text).split()[1]
-    
-    tmp = (
-        soup
-        .find('p', {'class': 'bus-skill-txt'})
-    )
-    if tmp is not None:
-        candidate['bus_skill'] = delete_spaces(tmp.text)
-
-    tmp = (
-        soup
-        .find('p', {'class': 'drive-info'})
-    )
-    if tmp is not None:
-        candidate['drive_info'] = delete_spaces(tmp.text)
-
-    tmp = (
-        soup
-        .find('p', {'class': 'marriage-info'})
-    )
-    if tmp is not None:
-        candidate['marriage_info'] = delete_spaces(tmp.text)
-
-    tmp = (
-        soup
-        .find('p', {'class': 'aboutme-info'})
-    )
-    if tmp is not None:
-        candidate['aboutme_info'] = delete_spaces(tmp.text)
-
-    # опыт работы
+def parse_experience(soup):
     company_names = soup.find_all('p', {'class': 'company-name'})
     company_types = soup.find_all('p', {'class': 'company-type'})
     work_periods = soup.find_all('div', {'class': 'b-work-period'})
@@ -129,14 +38,15 @@ def parse_cv(request):
     for i, res_exp in enumerate(res_exps):
         work_list[i]['res_exp'] = delete_spaces(res_exp.text)
 
-    candidate['experience_list'] = work_list
+    return work_list
 
-    # образовние
+
+def parse_education(soup):
     edu_years = soup.find_all('div', {'class': 'edu-year'})
     edu_types = soup.find_all('p', {'class': 'edu-type-ttl'})
     school_names = soup.find_all('p', {'class': 'school-name'})
     profes_infos = soup.find_all('div', {'class': 'profes-info'})
-    
+
     edu_work_dict = {
         'edu_year': '',
         'edu_type': '',
@@ -147,7 +57,7 @@ def parse_cv(request):
         map(len, (edu_years, edu_types, school_names, profes_infos))
     ))
     education_list = [edu_work_dict.copy() for _ in range(edu_list_size)]
-    
+
     for i, edu_year in enumerate(edu_years):
         education_list[i]['edu_year'] = delete_spaces(edu_year.text)
     for i, edu_type in enumerate(edu_types):
@@ -156,21 +66,96 @@ def parse_cv(request):
         education_list[i]['school_name'] = delete_spaces(school_name.text)
     for i, profes_info in enumerate(profes_infos):
         education_list[i]['profes_info'] = delete_spaces(profes_info.text)
-    candidate['education_list'] = education_list
+
+    return education_list
+
+
+def parse_cv(request):
+    candidate = dict()
+    soup = BeautifulSoup(request.text)
+
+    tmp = soup.find('span', {'class': 'position-name'})
+    if tmp is not None:
+        candidate['position_name'] = delete_spaces(tmp.text)
+
+    tmp = soup.find('span', {'class': 'salary'})
+    if tmp is not None:
+        candidate['salary'] = delete_spaces(tmp.text)
     
+    tmp = soup.find_all('div', {'class': 'b-skills-desrc'})
+    if tmp is not None:
+        candidate['skills'] = ''
+        for skill in tmp: 
+            candidate['skills'] += delete_spaces(skill.text) + '.'
+
+    tmp = soup.find_all('span', {'class': 'resume_leaving_region_block'})
+    if tmp is not None:
+        cities = []
+        for city in tmp:
+            cities.append(delete_spaces(city.text))
+        candidate['desired_places_of_work'] = cities
+
+    tmp = soup.find('p', {'class': 'b-sex-age'})
+    sexes = {'мужчина', 'женщина'}
+    if tmp is not None:
+        arr = delete_spaces(tmp.text).split(',')
+        arr = [delete_spaces(item) for item in arr]
+        age, sex = '', ''
+        if len(arr) > 0:
+            if arr[0] in sexes:
+                sex = arr[0]
+            else:
+                age = arr[0]
+        if len(arr) > 1:
+            if arr[1] in sexes and not sex:
+                sex = arr[1]
+            elif not age:
+                age = arr[1]
+        candidate['age'] = delete_spaces(age)
+        candidate['sex'] = delete_spaces(sex)
+
+    tmp = soup.find('p', {'class': 'b-city-info'})
+    if tmp is not None:
+        candidate['city'] = delete_spaces(tmp.text)
+
+    tmp = soup.find('p', {'class': 'b-citizenship-info'})
+    if tmp is not None:
+        candidate['citizenship'] = delete_spaces(tmp.text).split()[1]
+    
+    tmp = soup.find('p', {'class': 'bus-skill-txt'})
+    if tmp is not None:
+        candidate['bus_skill'] = delete_spaces(tmp.text)
+
+    tmp = soup.find('p', {'class': 'drive-info'})
+    if tmp is not None:
+        candidate['drive_info'] = delete_spaces(tmp.text)
+
+    tmp = soup.find('p', {'class': 'marriage-info'})
+    if tmp is not None:
+        candidate['marriage_info'] = delete_spaces(tmp.text)
+
+    tmp = soup.find('p', {'class': 'aboutme-info'})
+    if tmp is not None:
+        candidate['aboutme_info'] = delete_spaces(tmp.text)
+
+    candidate['experience_list'] = parse_experience(soup)
+
+    candidate['education_list'] = parse_education(soup)
+
     return candidate
 
+
 def main():
-    links = None
-    with open('links.txt', 'r', encoding='utf-8') as f:
+    with open(f'{CONFIG.DATA_FOLDER}/rabota_cv_links.txt', 'r', encoding='utf-8') as f:
         links = f.read().split('\n')
-        
+
+    cvs = []
     for link in tqdm(links):
         request = requests.get(link)
         cvs.append(parse_cv(request))
         time.sleep(1)
         
-    with open('cvs.json', 'w', encoding='utf-8') as f:
+    with open(f'{CONFIG.DATA_FOLDER}/rabota_cvs.json', 'w', encoding='utf-8') as f:
         json.dump(cvs, f, ensure_ascii=False, indent=4)
         
         
