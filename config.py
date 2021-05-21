@@ -1,4 +1,3 @@
-
 class CONFIG:
     DATA_FOLDER = 'data'
     URL_RABOTA_RU_CV = 'https://spb.rabota.ru/v3_searchResumeByParamsResults.html?action=search' +\
@@ -9,3 +8,9 @@ class CONFIG:
     CV_LINKS_TIME_SLEEP = 0.5
     URL_HH_VACANCIES = 'https://spb.hh.ru/search/vacancy?clusters=true&area=2&enable_snippets=true&salary=&' +\
                        'st=searchVacancy&text=Web+developer&from=suggest_post'
+    MODELS_FOLDER = 'models'
+    BINARY_VECTORIZER_NAME = 'binary_vectorizer.joblib'
+    BINARY_CLASSIFER_NAME = 'binary_classifier.joblib'
+    MULTI_VECTORIZER_NAME = 'multi_vectorizer.joblib'
+    MULTI_CLASSIFIER_NAME = 'multi_classifier.joblib'
+    
